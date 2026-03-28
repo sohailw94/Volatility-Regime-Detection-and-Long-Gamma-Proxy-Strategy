@@ -1,138 +1,200 @@
-Volatility Regime Detection and Long Gamma Proxy Strategy
+# Volatility Regime Detection and Long Gamma Proxy Strategy
 
 ## Overview
 
-This project investigates whether volatility expansion can be predicted using only real price data. The original hypothesis was that compressed volatility regimes would lead to future expansion. After testing that idea through feature design, decile analysis, and threshold sweeps, the evidence showed that compression alone did not predict expansion in SPY daily data.
+This project explores whether volatility expansion can be predicted using only price-based features. The initial hypothesis—low volatility (compression) leads to future expansion—was tested and rejected through empirical analysis.
 
-The project then pivoted toward regime-based volatility detection using a Hidden Markov Model (HMM). While directional continuation strategies underperformed, the signal consistently identified periods of elevated realized volatility and large absolute price moves. This led to a non-directional long gamma proxy strategy that monetizes magnitude rather than direction.
+The research then pivoted to regime detection using a Hidden Markov Model (HMM). While directional strategies underperformed, the model consistently identified periods of elevated realized volatility and large absolute price moves.
 
-## Core Research Journey
-
-### Phase 1: Compression Hypothesis
-- Built realized-volatility term structure features
-- Defined compression using:
-  - short vs long realized vol ratios
-  - rolling volatility percentile
-  - range compression
-  - band-width compression
-- Tested whether compression predicted future volatility expansion
-
-### Result
-Compression did **not** predict expansion. In fact, low-volatility regimes tended to remain low-volatility.
-
-### Phase 2: Regime Detection with HMM
-- Built an HMM using price-derived regime features
-- Inferred hidden volatility states
-- Identified high-volatility regimes using state-level realized-vol statistics
-
-### Result
-The HMM successfully separated low-, medium-, and high-volatility environments.
-
-### Phase 3: Directional Strategies
-- Tested breakout continuation strategies in high-volatility regimes
-- Applied trend filters and return-sign confirmation
-
-### Result
-Directional strategies underperformed. The signal captured magnitude, but not direction.
-
-### Phase 4: Long Gamma Proxy
-- Reframed the signal as a non-directional volatility strategy
-- Backtested a long gamma proxy using:
-  - absolute forward returns
-  - fixed cost assumption for option premium / decay / execution friction
-
-### Result
-The signal showed positive expectancy and strong risk-adjusted performance on SPY and QQQ under reasonable cost assumptions.
+This led to the development of a **non-directional long gamma proxy strategy**, where returns are driven by the magnitude of price movements rather than direction.
 
 ---
 
 ## Key Insight
 
-The main finding is:
+> The signal predicts **when large moves are likely**, but not **which direction they will take**.
 
-> The signal predicts **when** large moves are likely, but not **which direction** they will take.
-
-This makes it better suited for volatility-based strategies than directional trading.
+This makes it more suitable for **volatility-based strategies** than directional trading.
 
 ---
 
-## Data
+## Research Journey
 
-- Daily OHLCV price data
-- Primary source: Yahoo Finance via `yfinance`
-- No simulated Greeks in the core model
-- No option chain dependency for v1
+### 1. Compression Hypothesis (Rejected)
 
----
+* Built features based on:
 
-## Feature Design
+  * short vs long realized volatility ratios
+  * rolling volatility percentiles
+  * price range compression
+  * Bollinger Band width
+* Tested whether low-volatility regimes predict expansion
 
-Main features include:
-
-- `rv_5`, `rv_20`, `rv_60`
-- `rv_ratio_5_20`
-- `rv_ratio_20_60`
-- `rv_20_pct_252`
-- `range_ratio`
-- `bb_width_20`
-- `abs_ret_1d`
-
-These features are used to characterize volatility state and feed the HMM.
+**Result:**
+Compression does not predict expansion. Low-volatility regimes tend to persist.
 
 ---
 
-## HMM Regime Logic
+### 2. Regime Detection with HMM
 
-The HMM is fit on normalized price-derived regime features and infers hidden states such as:
+* Built an HMM using normalized price-based features
+* Identified latent volatility regimes:
 
-- low-volatility regime
-- medium/normal regime
-- high-volatility regime
+  * low-vol
+  * normal
+  * high-vol
 
-The high-volatility state is identified using the state with the highest average `rv_20`.
+**Result:**
+The model successfully separates volatility regimes.
+
+---
+
+### 3. Directional Strategies (Rejected)
+
+* Tested breakout + trend continuation strategies in high-vol regimes
+* Applied filters:
+
+  * trend alignment
+  * return sign confirmation
+  * volatility continuation
+
+**Result:**
+Directional strategies underperformed despite strong signal activity.
+
+---
+
+### 4. Long Gamma Proxy Strategy (Final)
+
+Reframed the signal into a **non-directional strategy**:
+
+* Enter when high-volatility regime is detected
+
+* Hold for short horizons (1–4 days)
+
+* Profit from absolute returns:
+
+  ```
+  PnL = |return| - cost
+  ```
+
+* Cost approximates:
+
+  * option premium
+  * decay
+  * execution friction
 
 ---
 
 ## Strategy Logic
 
-### Signal
-Enter when:
-- the HMM assigns high probability to the high-volatility regime
-- breakout / impulse filters confirm meaningful movement
-- price-based filters indicate active volatility expansion
+**Signal triggers when:**
 
-### Directional backtests
-Directional long/short continuation strategies were tested and rejected.
+* HMM indicates high-volatility regime
+* breakout / impulse confirms movement
+* short-term volatility is elevated
 
-### Final strategy
-The final strategy uses a **long gamma proxy**:
+**Execution:**
 
-- Enter on signal
-- Hold for 1–4 days
-- Approximate payoff using absolute forward returns
-- Subtract a fixed cost assumption to simulate option premium / decay
+* No directional bet
+* Returns depend on magnitude of price movement
 
 ---
 
-## Example Results
+## Results Summary
 
-### SPY
-- Positive expectancy under 1-day, 2-day, and 4-day holding periods
-- Strong Sharpe-like performance under a 1% cost assumption
+| Asset | Hold | Cost | Trades | Avg PnL | Win Rate | Sharpe | Max DD |
+| ----- | ---- | ---- | ------ | ------- | -------- | ------ | ------ |
+| SPY   | 2D   | 1%   | 20     | 0.71%   | 55%      | 4.7    | -2.0%  |
+| SPY   | 4D   | 1%   | 20     | 1.52%   | 65%      | 8.2    | -1.4%  |
+| QQQ   | 4D   | 1%   | 29     | 2.03%   | 75.9%    | 8.7    | -1.6%  |
 
-### QQQ
-- Stronger performance than SPY
-- Higher win rate and larger average trade PnL
-- Suggests the signal is more powerful in higher-beta assets
+**Observations:**
+
+* Performance improves with longer holding periods
+* Signal is stronger in higher-beta assets (QQQ vs SPY)
+* Volatility expansion appears persistent and clustered
 
 ---
 
-## Repo Structure
+## Data
 
-```text
+* Daily OHLCV data
+* Source: `yfinance`
+* No options data required (v1)
+* No simulated Greeks
+
+---
+
+## Feature Set
+
+* Realized volatility: `rv_5`, `rv_20`, `rv_60`
+* Term structure: `rv_ratio_5_20`, `rv_ratio_20_60`
+* Volatility percentile
+* Price range compression
+* Bollinger Band width
+* Absolute returns
+
+---
+
+## Project Structure
+
+```
 src/
-  data/
-  features/
-  signals/
-  backtest/
+  data/           # data ingestion
+  features/       # feature engineering
+  signals/        # HMM + signal logic
+  backtest/       # strategy evaluation
+  visualization/  # plots and charts
+
+data/
+  raw/
+  processed/
+
+outputs/
+  figures/
+```
+
+---
+
+## How to Run
+
+```bash
+python -m src.data.pull_data
+python -m src.features.build_features
+python -m src.signals.hmm_short_term_continuation
+python -m src.backtest.run_long_gamma_backtest
+python -m src.visualization.plot_gamma_results
+```
+
+For QQQ:
+
+```bash
+python -m src.signals.hmm_short_term_continuation_qqq
+python -m src.backtest.run_long_gamma_backtest_qqq
+```
+
+---
+
+## Limitations
+
+* Small sample size (20–30 trades per asset)
+* Proxy payoff (not actual options execution)
+* Results sensitive to transaction cost assumptions
+
+---
+
+## Key Takeaways
+
+* Volatility is easier to predict than direction
+* High-volatility regimes are persistent and clustered
+* Non-directional strategies better capture this behavior
+* Aligning strategy with signal type is critical
+
+---
+
+
+## Disclaimer
+
+This project is for research and educational purposes only. It is not investment advice and is not intended for production trading use.
+
   visualization/
